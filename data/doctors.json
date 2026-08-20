@@ -1,0 +1,22 @@
+[
+  {
+    "doctor_id": "D1001",
+    "name": "Dr. Priya Sharma",
+    "specialty": "Cardiology"
+  },
+  {
+    "doctor_id": "D1002",
+    "name": "Dr. Michael Chen",
+    "specialty": "Dermatology"
+  },
+  {
+    "doctor_id": "D1003",
+    "name": "Dr. Ananya Rao",
+    "specialty": "Cardiology"
+  },
+  {
+    "doctor_id": "D1004",
+    "name": "Dr. James Wilson",
+    "specialty": "General Medicine"
+  }
+]

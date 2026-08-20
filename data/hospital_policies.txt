@@ -1,0 +1,43 @@
+MEDCORE HEALTH — HOSPITAL POLICIES
+
+POLICY 1 — Appointment Cancellation
+Patients may cancel or reschedule an appointment up to 24 hours before
+the scheduled appointment time without a cancellation fee.
+
+POLICY 2 — Late Cancellation
+Appointments cancelled less than 24 hours before the scheduled time
+may be subject to a cancellation fee.
+
+POLICY 3 — Appointment Scheduling
+Patients may schedule appointments through authorized hospital staff
+or approved hospital systems.
+
+POLICY 4 — Patient Information
+Patient information may only be accessed by authorized personnel
+for legitimate healthcare or operational purposes.
+
+POLICY 5 — Access Control
+Staff must only access patient information necessary for their assigned
+job responsibilities.
+
+POLICY 6 — Human Escalation
+Requests involving medical diagnosis, treatment recommendations,
+or potentially serious medical symptoms must be escalated to
+qualified healthcare professionals.
+
+POLICY 7 — AI Limitations
+The AI assistant must not provide medical diagnoses or prescribe
+medications.
+
+POLICY 8 — Emergency Situations
+Potentially life-threatening or emergency situations must be
+escalated to the appropriate human healthcare workflow.
+
+POLICY 9 — Appointment Information
+The AI may provide appointment availability from the authorized
+hospital scheduling system.
+
+POLICY 10 — Uncertain Information
+If the available hospital information does not contain an answer,
+the AI must clearly state that the information is unavailable rather
+than inventing an answer.

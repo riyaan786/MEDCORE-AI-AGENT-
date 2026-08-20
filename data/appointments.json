@@ -1,0 +1,50 @@
+[
+  {
+    "appointment_id": "A1001",
+    "patient_id": "P1001",
+    "doctor_id": "D1001",
+    "date": "2026-08-25",
+    "time": "09:00",
+    "status": "scheduled"
+  },
+  {
+    "appointment_id": "A1002",
+    "patient_id": "P1002",
+    "doctor_id": "D1003",
+    "date": "2026-08-25",
+    "time": "11:00",
+    "status": "scheduled"
+  },
+  {
+    "appointment_id": "A1003",
+    "patient_id": null,
+    "doctor_id": "D1001",
+    "date": "2026-08-26",
+    "time": "10:30",
+    "status": "available"
+  },
+  {
+    "appointment_id": "A1004",
+    "patient_id": null,
+    "doctor_id": "D1003",
+    "date": "2026-08-26",
+    "time": "14:00",
+    "status": "available"
+  },
+  {
+    "appointment_id": "A1005",
+    "patient_id": null,
+    "doctor_id": "D1001",
+    "date": "2026-08-27",
+    "time": "09:30",
+    "status": "available"
+  },
+  {
+    "appointment_id": "A1006",
+    "patient_id": null,
+    "doctor_id": "D1004",
+    "date": "2026-08-25",
+    "time": "15:00",
+    "status": "available"
+  }
+]
