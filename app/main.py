@@ -1,4 +1,4 @@
-from llm import run_agent
+from app.llm import run_agent
 
 
 def main():

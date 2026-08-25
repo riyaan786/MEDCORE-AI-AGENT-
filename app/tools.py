@@ -1,6 +1,10 @@
 from app.appointment_service import (
     find_earliest_appointment,
     book_appointment,
+    find_patient_appointments,
+    find_appointment_by_id,
+    cancel_appointment,
+    reschedule_appointment,
 )
 
 from app.hospital_data import (
@@ -78,6 +82,58 @@ def get_doctors_by_specialty(specialty):
     }
 
 
+def get_patient_appointments(patient_id):
+
+    patients = get_patients()
+
+    patient_exists = any(
+        patient["patient_id"] == patient_id
+        for patient in patients
+    )
+
+    if not patient_exists:
+
+        return {
+            "success": False,
+            "error": (
+                f"Patient {patient_id} "
+                "was not found."
+            ),
+        }
+
+    appointments = find_patient_appointments(
+        patient_id
+    )
+
+    return {
+        "success": True,
+        "patient_id": patient_id,
+        "appointments": appointments,
+    }
+
+
+def get_appointment(appointment_id):
+
+    appointment = find_appointment_by_id(
+        appointment_id
+    )
+
+    if appointment is None:
+
+        return {
+            "success": False,
+            "error": (
+                f"Appointment {appointment_id} "
+                "was not found."
+            ),
+        }
+
+    return {
+        "success": True,
+        "appointment": appointment,
+    }
+
+
 def book_patient_appointment(
     appointment_id,
     patient_id,
@@ -103,4 +159,43 @@ def book_patient_appointment(
     return book_appointment(
         appointment_id,
         patient_id,
+    )
+
+
+def cancel_patient_appointment(
+    appointment_id,
+    patient_id=None,
+):
+
+    patients = get_patients()
+
+    patient_exists = any(
+        patient["patient_id"] == patient_id
+        for patient in patients
+    ) if patient_id else True
+
+    if patient_id and not patient_exists:
+
+        return {
+            "success": False,
+            "error": (
+                f"Patient {patient_id} "
+                "was not found."
+            ),
+        }
+
+    return cancel_appointment(
+        appointment_id,
+        patient_id,
+    )
+
+
+def reschedule_patient_appointment(
+    appointment_id,
+    new_date=None,
+):
+
+    return reschedule_appointment(
+        appointment_id,
+        new_date=new_date,
     )

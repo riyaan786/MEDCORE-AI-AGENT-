@@ -18,5 +18,10 @@
     "doctor_id": "D1004",
     "name": "Dr. James Wilson",
     "specialty": "General Medicine"
+  },
+  {
+    "doctor_id": "D1005",
+    "name": "Dr. Maria Gonzalez",
+    "specialty": "Neurology"
   }
 ]

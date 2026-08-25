@@ -3,7 +3,14 @@ import re
 import requests
 
 from app.rag import retrieve
-from app.agent import execute_tool
+from app.agent import (
+    execute_tool,
+    extract_patient_id,
+    extract_appointment_id,
+    extract_specialty,
+    extract_date,
+)
+from app.hospital_data import get_doctor_by_id
 
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
@@ -125,6 +132,77 @@ def extract_patient_id(text):
     return None
 
 
+# =============================================================
+# APPOINTMENT ID
+# ============================================================
+
+def extract_appointment_id(text):
+
+    match = re.search(
+        r"\bA\d+\b",
+        text,
+        re.IGNORECASE,
+    )
+
+    if match:
+
+        return match.group(0).upper()
+
+    return None
+
+
+# ============================================================
+# DATE EXTRACTION
+# ============================================================
+
+def extract_date(text):
+
+    text = text.lower()
+
+    match = re.search(
+        r"\b(\d{4})-(\d{2})-(\d{2})\b",
+        text,
+    )
+
+    if match:
+
+        return (
+            f"{match.group(1)}"
+            f"-{match.group(2)}"
+            f"-{match.group(3)}"
+        )
+
+    months = {
+        "january": "01", "february": "02",
+        "march": "03", "april": "04",
+        "may": "05", "june": "06",
+        "july": "07", "august": "08",
+        "september": "09", "october": "10",
+        "november": "11", "december": "12",
+        "jan": "01", "feb": "02", "mar": "03",
+        "apr": "04", "jun": "06", "jul": "07",
+        "aug": "08", "sep": "09", "oct": "10",
+        "nov": "11", "dec": "12",
+    }
+
+    month_pattern = "|".join(months.keys())
+
+    match = re.search(
+        r"\b(" + month_pattern + r")\s+(\d{1,2})\b",
+        text,
+    )
+
+    if match:
+
+        month = months[match.group(1)]
+
+        day = match.group(2).zfill(2)
+
+        return f"2026-{month}-{day}"
+
+    return None
+
+
 # ============================================================
 # DOCTOR LOOKUP DETECTION
 # ============================================================
@@ -154,6 +232,12 @@ def looks_like_doctor_lookup(text):
         "who are the doctors",
         "who are the specialists",
     ]
+
+    # Flexible pattern: "show me" + "doctor/specialist"
+    if "show me" in text and (
+        "doctor" in text or "specialist" in text
+    ):
+        return True
 
     return any(
         phrase in text
@@ -318,6 +402,28 @@ def run_agent(user_request):
         "recommend medicine",
         "recommend a drug",
         "should i see a doctor for this symptom",
+        "what does that mean",
+        "what does this mean",
+        "what does that mean for me",
+        "what does this mean for me",
+        "best pill",
+        "best medication",
+        "best medicine",
+        "what is the best pill",
+        "what's the best pill",
+        "what is the best medication",
+        "what's the best medication",
+        "what is the best medicine",
+        "what's the best medicine",
+        "having chest pain",
+        "having chest pains",
+        "with chest pain",
+        "bad headache",
+        "severe headache",
+        "terrible headache",
+        "having a rash",
+        "with a rash",
+        "skin rash",
     ]
 
     if any(
@@ -335,12 +441,186 @@ def run_agent(user_request):
         }
 
     # ========================================================
-    # 2. PATIENT LOOKUP
+    # EXTRACT IDS FOR ROUTING
     # ========================================================
 
-    patient_id = extract_patient_id(
-        user_request
-    )
+    patient_id = extract_patient_id(user_request)
+    appointment_id = extract_appointment_id(user_request)
+
+    # ========================================================
+    # APPOINTMENT CANCELLATION
+    # ========================================================
+
+    if any(phrase in text for phrase in [
+        "cancel", "can't make", "cant make",
+        "can't attend", "cant attend",
+        "need to cancel", "want to cancel",
+    ]):
+        if appointment_id:
+            result = execute_tool("cancel_patient_appointment",
+                {"appointment_id": appointment_id}, user_request)
+            if not result.get("success"):
+                return {"tool": "cancel_patient_appointment",
+                    "success": False,
+                    "response": result.get("error",
+                        "Could not cancel the appointment.")}
+            appt = result.get("appointment", {})
+            return {"tool": "cancel_patient_appointment",
+                "success": True,
+                "response": f"I've cancelled your appointment "
+                    f"{appointment_id} scheduled for "
+                    f"{appt.get('date', '?')} at "
+                    f"{appt.get('time', '?')}."}
+        elif patient_id:
+            ar = execute_tool("get_patient_appointments",
+                {"patient_id": patient_id}, user_request)
+            apps = ar.get("appointments", [])
+            sched = [a for a in apps if a["status"] == "scheduled"]
+            if not sched:
+                return {"tool": None, "success": False,
+                    "response": f"No scheduled appointments found for {patient_id}."}
+            tgt = sched[0]
+            result = execute_tool("cancel_patient_appointment",
+                {"appointment_id": tgt["appointment_id"]}, user_request)
+            if not result.get("success"):
+                return {"tool": "cancel_patient_appointment",
+                    "success": False,
+                    "response": result.get("error", "Could not cancel.")}
+            appt = result.get("appointment", {})
+            return {"tool": "cancel_patient_appointment",
+                "success": True,
+                "response": f"I've cancelled appointment "
+                    f"{tgt['appointment_id']} scheduled for "
+                    f"{appt.get('date', '?')} at "
+                    f"{appt.get('time', '?')}."}
+        else:
+            return {"tool": None, "success": False,
+                "response": "I can help you cancel an appointment. "
+                    "Please provide the appointment ID (e.g., A1001) "
+                    "or patient ID (e.g., P1001)."}
+
+    # ========================================================
+    # APPOINTMENT RESCHEDULING
+    # ========================================================
+
+    if any(phrase in text for phrase in [
+        "reschedule", "shift", "move",
+        "change my appointment", "change appointment",
+    ]):
+        new_date = extract_date(user_request)
+        if appointment_id:
+            result = execute_tool("reschedule_patient_appointment",
+                {"appointment_id": appointment_id, "new_date": new_date},
+                user_request)
+            if not result.get("success"):
+                return {"tool": "reschedule_patient_appointment",
+                    "success": False,
+                    "response": result.get("error", "Could not reschedule.")}
+            old = result.get("old_appointment", {})
+            new = result.get("new_appointment", {})
+            return {"tool": "reschedule_patient_appointment",
+                "success": True,
+                "response": f"I've rescheduled your appointment from "
+                    f"{result.get('old_appointment_id', '?')} "
+                    f"({old.get('date', '?')} at {old.get('time', '?')}) "
+                    f"to {new.get('appointment_id', '?')} "
+                    f"({new.get('date', '?')} at {new.get('time', '?')})."}
+        elif patient_id:
+            ar = execute_tool("get_patient_appointments",
+                {"patient_id": patient_id}, user_request)
+            apps = ar.get("appointments", [])
+            sched = [a for a in apps if a["status"] == "scheduled"]
+            if not sched:
+                return {"tool": None, "success": False,
+                    "response": f"No scheduled appointments found for {patient_id}."}
+            tgt = sched[0]
+            result = execute_tool("reschedule_patient_appointment",
+                {"appointment_id": tgt["appointment_id"], "new_date": new_date},
+                user_request)
+            if not result.get("success"):
+                return {"tool": "reschedule_patient_appointment",
+                    "success": False,
+                    "response": result.get("error", "Could not reschedule.")}
+            old = result.get("old_appointment", {})
+            new = result.get("new_appointment", {})
+            return {"tool": "reschedule_patient_appointment",
+                "success": True,
+                "response": f"I've rescheduled your appointment from "
+                    f"{result.get('old_appointment_id', '?')} "
+                    f"({old.get('date', '?')} at {old.get('time', '?')}) "
+                    f"to {new.get('appointment_id', '?')} "
+                    f"({new.get('date', '?')} at {new.get('time', '?')})."}
+        else:
+            return {"tool": None, "success": False,
+                "response": "I can help you reschedule. Please provide "
+                    "the appointment ID (e.g., A1001) or patient ID (e.g., P1001)."}
+
+    # ========================================================
+    # APPOINTMENT LOOKUP BY PATIENT
+    # ========================================================
+
+    if patient_id and any(w in text for w in [
+        "appointment", "appointments",
+        "my appointment", "what appointment",
+    ]) and not any(w in text for w in [
+        "book", "booking", "schedule", "reserve",
+    ]):
+        result = execute_tool("get_patient_appointments",
+            {"patient_id": patient_id}, user_request)
+        if not result.get("success"):
+            return {"tool": "get_patient_appointments",
+                "success": False,
+                "response": result.get("error", "Could not find appointments.")}
+        apps = result.get("appointments", [])
+        if not apps:
+            return {"tool": "get_patient_appointments",
+                "success": True,
+                "response": f"No appointments found for {patient_id}."}
+        strs = []
+        for a in apps:
+            doc = get_doctor_by_id(a.get("doctor_id"))
+            dn = doc["name"] if doc else "Unknown"
+            strs.append(f"{a['appointment_id']} on {a['date']} "
+                f"at {a['time']} with {dn} ({a['status']})")
+        return {"tool": "get_patient_appointments",
+            "success": True,
+            "response": f"Appointments for {patient_id}: " + "; ".join(strs)}
+
+    # ========================================================
+    # APPOINTMENT BOOKING
+    # ========================================================
+
+    if (patient_id and any(w in text for w in [
+        "book", "booking", "schedule", "reserve",
+        "want to schedule", "want to book",
+    ]) and extract_specialty(user_request)):
+        specialty = extract_specialty(user_request)
+        fr = execute_tool("get_earliest_appointment",
+            {"specialty": specialty}, user_request)
+        if not fr.get("success"):
+            return {"tool": "book_patient_appointment",
+                "success": False,
+                "response": fr.get("error", f"No available {specialty} appointments.")}
+        slot = fr["appointment"]
+        br = execute_tool("book_patient_appointment",
+            {"appointment_id": slot["appointment_id"], "patient_id": patient_id},
+            user_request)
+        if not br.get("success"):
+            return {"tool": "book_patient_appointment",
+                "success": False,
+                "response": br.get("error", "Could not book the appointment.")}
+        booked = br["appointment"]
+        doctor = get_doctor_by_id(booked.get("doctor_id"))
+        dn = doctor["name"] if doctor else "Unknown"
+        return {"tool": "book_patient_appointment",
+            "success": True,
+            "response": f"I've booked a {specialty} appointment "
+                f"for {patient_id}. Appointment "
+                f"{booked['appointment_id']} on {booked['date']} "
+                f"at {booked['time']} with {dn}."}
+    # ========================================================
+    # 6. PATIENT LOOKUP
+    # ========================================================
 
     if patient_id and any(
         word in text
@@ -353,6 +633,20 @@ def run_agent(user_request):
             "info",
             "profile",
             "file",
+            "have",
+        ]
+    ) and not any(
+        word in text
+        for word in [
+            "appointment",
+            "appointments",
+            "book",
+            "schedule",
+            "cancel",
+            "reschedule",
+            "shift",
+            "move",
+            "booking",
         ]
     ):
 
@@ -405,9 +699,27 @@ def run_agent(user_request):
         user_request
     )
 
+    # ========================================================
+    # Booking request without patient ID
+    # ========================================================
+
+    if not patient_id and specialty and (
+        re.search(r"\bbook\b", text)
+        or "schedule" in text
+    ):
+        return {
+            "tool": "book_patient_appointment",
+            "success": False,
+            "response": (
+                "To book an appointment, I need a "
+                "patient ID. Please provide the "
+                "patient ID (e.g., P1001)."
+            ),
+        }
+
     if specialty and looks_like_appointment(
         user_request
-    ):
+    ) and "doctor" not in text and "specialist" not in text:
 
         result = execute_tool(
             "get_earliest_appointment",
