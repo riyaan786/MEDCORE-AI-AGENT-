@@ -462,12 +462,7 @@ MEDCORE-AI-AGENT/
 ├── docs/
 │   └── customer_requirements.md
 │
-├── frontend/
-│   └── index.html
-│
 ├── requirements.txt
-├── Dockerfile
-├── docker-compose.yml
 ├── logging.toml
 ├── .gitignore
 └── README.md
@@ -525,12 +520,6 @@ uvicorn app.api:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 python -m app.terminal
-```
-
-### Running with Docker
-
-```bash
-docker-compose up --build
 ```
 
 ---
