@@ -463,7 +463,6 @@ MEDCORE-AI-AGENT/
 │   └── customer_requirements.md
 │
 ├── requirements.txt
-├── logging.toml
 ├── .gitignore
 └── README.md
 ```
