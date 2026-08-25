@@ -1,91 +1,101 @@
-# MEDCORE AI Agent
+# MEDCORE AI — Hospital Operations AI Agent
 
-A production-oriented AI hospital operations agent built around a **small local LLaMA model**.
+A production-oriented AI agent for hospital operations, built with a strong **FDE (Forward Deployed Engineer) mindset**.
 
-MEDCORE AI demonstrates how a relatively small language model can be turned into a reliable domain-specific AI agent through strong engineering: tool routing, deterministic business logic, validation, RAG, safety boundaries, stateful workflows, persistence, and systematic evaluation.
+MEDCORE AI is designed around a simple principle:
 
-The project is designed with an **FDE (Forward Deployed Engineer) mindset**: understand the customer's operational requirements, translate them into reliable AI workflows, integrate the right tools and data, test real-world failure cases, and build a system that can actually be deployed and maintained.
+> **Understand the customer's operational problem first, then engineer the AI system around it.**
 
----
-
-## Why MEDCORE AI?
-
-Large language models are powerful, but an LLM alone is not a reliable hospital operations system.
-
-MEDCORE AI separates **language understanding** from **business-critical execution**.
-
-The model determines what the user is trying to accomplish, while deterministic application code handles the actual hospital operations.
-
-This architecture makes the system more predictable, testable, and maintainable.
-
-A key goal of this project was to demonstrate that **good agent engineering can make a small local model surprisingly capable**.
+Instead of building a generic chatbot, this project focuses on practical hospital workflows such as patient lookup, doctor discovery, appointment availability, booking, cancellation, rescheduling, appointment history, RAG-based hospital knowledge, safety handling, evaluation, and stateful data operations.
 
 ---
 
-## Architecture
+## Why This Project
+
+The goal of MEDCORE AI is not to demonstrate that an LLM can generate text.
+
+The goal is to demonstrate that an AI system can:
+
+* Understand real user requests
+* Determine whether a request is inside the system's scope
+* Route requests to the correct tool
+* Extract and normalize structured information
+* Execute deterministic backend operations
+* Maintain state when operations modify data
+* Handle invalid and incomplete requests
+* Refuse unsafe medical requests
+* Retrieve information from hospital knowledge sources
+* Be evaluated systematically rather than judged only by conversation quality
+* Be debugged and improved using measurable evaluation results
+
+This reflects the type of engineering required when deploying AI systems for real customers.
+
+---
+
+## Core Architecture
 
 ```text
-User
-  │
-  ▼
-FastAPI API
-  │
-  ▼
-AI Agent / Request Router
-  │
-  ├── Patient Operations
-  │     └── get_patient
-  │
-  ├── Doctor Operations
-  │     └── get_doctors_by_specialty
-  │
-  ├── Appointment Operations
-  │     ├── Find earliest appointment
-  │     ├── Find appointments
-  │     ├── Book appointment
-  │     ├── Cancel appointment
-  │     └── Reschedule appointment
-  │
-  ├── RAG
-  │     └── Hospital knowledge / policies
-  │
-  └── Safety / Scope Validation
-          │
-          ▼
-    Hospital Data Layer
-          │
-          ▼
-      JSON Persistence
+User Request
+     │
+     ▼
+   LLM
+     │
+     ▼
+Request Classification
+     │
+     ├── Patient Operations
+     │
+     ├── Doctor Discovery
+     │
+     ├── Appointment Operations
+     │
+     ├── Hospital Knowledge / RAG
+     │
+     ├── Safety Handling
+     │
+     └── Out-of-Scope Handling
+     │
+     ▼
+Tool Selection + Argument Extraction
+     │
+     ▼
+Deterministic Python Tools
+     │
+     ▼
+Hospital Data Layer
+     │
+     ├── Patients
+     ├── Doctors
+     └── Appointments
+     │
+     ▼
+Structured Response
 ```
 
-The LLM is not trusted to directly modify hospital data.
-
-Instead:
-
-```text
-Natural language
-      ↓
-Intent / argument extraction
-      ↓
-Validated tool call
-      ↓
-Deterministic business logic
-      ↓
-Persistent hospital data
-      ↓
-Structured response
-```
+The LLM is used for understanding and routing, while important business operations are handled by deterministic Python code.
 
 ---
 
-## Core Capabilities
+## AI Model
+
+MEDCORE AI intentionally uses a **small local LLaMA-family model** rather than relying on a large hosted proprietary model.
+
+This was an engineering constraint.
+
+The objective was to demonstrate that good system architecture, routing, tool design, evaluation, safety controls, and deterministic backend logic can make a relatively small model significantly more useful.
+
+The project therefore focuses on **engineering quality around the model**, rather than simply increasing model size.
+
+---
+
+## Features
 
 ### Patient Operations
 
-* Look up patients by patient ID
-* Validate unknown patient IDs
-* Return structured patient information
-* Retrieve appointments belonging to a patient
+* Patient lookup by patient ID
+* Patient validation
+* Handling unknown patients
+* Structured patient information retrieval
 
 Example:
 
@@ -93,39 +103,19 @@ Example:
 "Look up patient P1001."
 ```
 
-Result:
-
-```text
-Patient P1001: Arjun Mehta.
-Date of birth: 1985-04-12.
-Phone: 555-0101.
-```
-
 ---
 
-### Doctor & Specialty Operations
+### Doctor Discovery
 
-The agent can identify doctors by medical specialty.
+The agent can identify available doctors by specialty.
 
 Example:
 
 ```text
-"Who are the cardiologists?"
-```
-
-The system routes the request to:
-
-```text
-get_doctors_by_specialty
-```
-
-It can also handle flexible wording such as:
-
-```text
 "Show me available cardiology doctors."
-"Who are the dermatologists?"
-"Can you show me the heart specialists?"
 ```
+
+The system returns matching doctors and their IDs rather than treating every appointment request as an appointment lookup.
 
 ---
 
@@ -136,28 +126,19 @@ The agent can find the earliest available appointment for a specialty.
 Example:
 
 ```text
-"I want to see a heart specialist as soon as possible."
-```
-
-The system identifies cardiology as the required specialty and calls:
-
-```text
-get_earliest_appointment
-```
-
-Example response:
-
-```text
-The earliest available cardiology appointment is on
-2026-08-26 at 10:30.
-Appointment ID: A1003.
+"Find the earliest cardiology appointment."
 ```
 
 ---
 
 ### Appointment Booking
 
-The system supports booking appointments for patients while validating the required information.
+The system supports booking appointments for patients while validating:
+
+* Patient existence
+* Specialty availability
+* Appointment availability
+* Booking state
 
 Example:
 
@@ -165,20 +146,11 @@ Example:
 "Book a cardiology appointment for patient P1003."
 ```
 
-The agent can:
-
-1. Identify the requested specialty.
-2. Identify the patient.
-3. Find an appropriate available appointment.
-4. Validate the patient.
-5. Book the appointment.
-6. Persist the updated state.
-
 ---
 
 ### Appointment Lookup
 
-Users can retrieve appointments associated with a patient.
+The system can retrieve appointments associated with a patient.
 
 Example:
 
@@ -190,7 +162,7 @@ Example:
 
 ### Appointment Cancellation
 
-The system supports cancellation using appointment or patient information.
+Appointments can be cancelled using appointment information or patient context.
 
 Example:
 
@@ -198,13 +170,11 @@ Example:
 "I need to cancel appointment A1003."
 ```
 
-The operation is handled by deterministic application logic rather than allowing the LLM to modify data directly.
-
 ---
 
 ### Appointment Rescheduling
 
-Appointments can also be rescheduled.
+Appointments can be moved to another date while preserving system state.
 
 Example:
 
@@ -212,37 +182,64 @@ Example:
 "I need to reschedule appointment A1001 to 2026-08-28."
 ```
 
-The agent extracts and validates the appointment ID and requested date before modifying the appointment.
+---
+
+### Stateful Operations
+
+Appointment booking, cancellation, and rescheduling modify persistent application state.
+
+This allows the system to demonstrate that it is not simply producing simulated responses.
+
+---
+
+## Flexible Request Handling
+
+The system supports multiple ways of expressing similar requests.
+
+For example:
+
+```text
+"Find the earliest cardiology appointment."
+
+"What is the next available cardiology slot?"
+
+"Show me an available cardiology appointment."
+```
+
+These can be normalized into the appropriate backend operation.
+
+This is important for real deployments because customers do not interact with software using one perfectly defined sentence structure.
 
 ---
 
 ## RAG
 
-MEDCORE AI includes a retrieval-augmented generation layer for hospital knowledge.
+MEDCORE AI includes a Retrieval-Augmented Generation component for hospital knowledge.
 
-The purpose of RAG is to allow the agent to answer questions using **provided hospital knowledge and policies** rather than relying entirely on the model's internal knowledge.
-
-This creates a separation between:
+Hospital knowledge can be stored in:
 
 ```text
-General language reasoning
-        +
-Hospital-specific knowledge
-        ↓
-Grounded response
+data/hospital_knowledge/
 ```
 
-This approach is important for enterprise AI systems where responses need to be grounded in customer-provided information.
+The RAG layer allows the agent to retrieve relevant hospital information instead of relying entirely on model memory.
+
+This architecture can be extended to include:
+
+* Hospital policies
+* FAQs
+* Operational procedures
+* Scheduling policies
+* Department information
+* Internal documentation
 
 ---
 
-## Safety & Scope Control
+## Safety
 
-The agent is intentionally restricted to hospital operations.
+The system explicitly handles medical requests that are outside the intended operational scope.
 
-It does **not** attempt to diagnose patients, prescribe medication, or provide treatment recommendations.
-
-Examples that are rejected:
+For example:
 
 ```text
 "I have chest pain. Diagnose me."
@@ -250,78 +247,13 @@ Examples that are rejected:
 "What medicine should I take for my headache?"
 
 "What treatment should I use for my infection?"
-
-"What disease do I have?"
 ```
 
-The system also rejects unrelated requests such as:
+The system does not attempt to diagnose patients or prescribe treatment.
 
-```text
-"What's the weather today?"
+This is treated as an **engineering and evaluation requirement**, not merely a prompt instruction.
 
-"What's the capital of India?"
-
-"Tell me a joke."
-
-"Write a Python function."
-```
-
-This demonstrates an important production-agent principle:
-
-> An agent should not simply answer every question it receives. It should understand its operational boundaries and fail safely outside them.
-
----
-
-## Flexible Request Handling
-
-The system is designed to handle different ways of expressing the same intent.
-
-For example:
-
-```text
-"Look up patient P1001."
-
-"Show me the record for patient P1001."
-
-"What is the medical record info for P1001?"
-```
-
-All can resolve to:
-
-```text
-get_patient
-```
-
-Similarly:
-
-```text
-"Find the earliest cardiology appointment."
-
-"What is the next available cardiology slot?"
-
-"I want to see a heart specialist as soon as possible."
-```
-
-can resolve to the appointment workflow.
-
-This is important in real deployments because customers do not communicate using a fixed set of predefined commands.
-
----
-
-## Stateful Operations
-
-Appointment workflows modify application state.
-
-The project therefore includes persistence and state management for operations such as:
-
-* Booking
-* Cancellation
-* Rescheduling
-* Appointment lookup
-
-The system also provides data reset functionality so evaluations can run against a known initial state.
-
-This allows repeatable testing of stateful agent behavior.
+Indirect variations are also tested to reduce simple keyword-based bypasses.
 
 ---
 
@@ -331,104 +263,35 @@ The project includes a dedicated evaluation suite covering:
 
 * Patient lookup
 * Unknown patients
+* Doctor discovery
 * Appointment availability
-* Doctor lookup
 * Appointment booking
+* Appointment lookup
 * Appointment cancellation
 * Appointment rescheduling
-* Patient appointment lookup
 * Flexible phrasing
 * Missing information
-* Invalid IDs
+* Invalid patients
 * Unavailable specialties
-* Medical safety boundaries
 * Out-of-scope requests
-* Malformed inputs
-* Stateful workflows
+* Medical safety cases
+* Indirect medical requests
+* Malformed input
+* Stateful operations
 
 Current evaluation result:
 
 ```text
-PASSED: 45/45
-ACCURACY: 100.0%
+45 / 45 tests passed
+Accuracy: 100.0%
 ```
 
-The evaluation suite is designed to test more than whether the model produces a reasonable sentence.
+The evaluation framework is designed to measure both:
 
-It checks whether the agent:
+1. **Tool selection**
+2. **Tool execution success**
 
-1. Identifies the correct intent.
-2. Selects the correct tool.
-3. Extracts the correct arguments.
-4. Executes the correct business operation.
-5. Handles failure conditions.
----
-
-## FDE Engineering Focus
-
-This project is intentionally built around the responsibilities of an **FDE / AI Engineer working directly with customers**.
-
-The focus is not simply:
-
-> "Build a chatbot."
-
-Instead, the project demonstrates the engineering process of turning customer requirements into a working AI system.
-
-### Customer requirement
-
-> Hospital staff need an AI assistant that can find patients, identify doctors, manage appointments, and answer hospital-specific questions while avoiding unsafe medical advice.
-
-### Engineering translation
-
-```text
-Customer requirement
-        ↓
-Identify workflows
-        ↓
-Define tools
-        ↓
-Define data contracts
-        ↓
-Build routing
-        ↓
-Implement deterministic business logic
-        ↓
-Add RAG
-        ↓
-Add safety boundaries
-        ↓
-Add persistence
-        ↓
-Create evaluations
-        ↓
-Test failure cases
-        ↓
-Iterate until reliable
-```
-
-This project emphasizes the FDE principle that **successful AI deployments require much more than the underlying model**.
-
----
-
-## Why Use a Small Local Model?
-
-MEDCORE AI intentionally uses a relatively small local LLaMA model rather than depending on a large cloud model.
-
-The goal is to demonstrate that system quality can come from the engineering surrounding the model.
-
-The project focuses on:
-
-* Constrained domain
-* Explicit tools
-* Deterministic business logic
-* Argument normalization
-* Validation
-* RAG
-* Safety filtering
-* Stateful workflows
-* Evaluation-driven development
-
-This makes the project particularly useful as an example of **agent engineering rather than model-size engineering**.
+This makes it possible to identify whether a failure originates from routing, argument extraction, backend logic, or data state.
 
 ---
 
@@ -455,21 +318,19 @@ MEDCORE-AI-AGENT/
 │   ├── appointments.json
 │   ├── doctors.json
 │   ├── patients.json
-│   ├── hospital_policies.txt
 │   └── hospital_knowledge/
 │       └── hospital_faq.md
 │
 ├── docs/
 │   └── customer_requirements.md
 │
-├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## Running the Project
+## Running Locally
 
 Clone the repository:
 
@@ -478,7 +339,7 @@ git clone https://github.com/riyaan786/MEDCORE-AI-AGENT-.git
 cd MEDCORE-AI-AGENT-
 ```
 
-Create a virtual environment:
+Create the virtual environment:
 
 ```bash
 python3 -m venv .venv
@@ -496,101 +357,129 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-Run the evaluation suite:
+Run the application:
+
+```bash
+python -m app.main
+```
+
+---
+
+## Running the Evaluation Suite
+
+Run:
 
 ```bash
 python -m app.eval_runner
 ```
 
-Expected result:
+The evaluation suite provides detailed information about:
+
+* Request
+* Selected tool
+* Tool arguments
+* Tool success
+* Response
+* Pass/fail result
+* Overall accuracy
+
+---
+
+## Engineering Approach
+
+MEDCORE AI follows several principles important to real-world AI deployments.
+
+### 1. Customer-first engineering
+
+The system begins with operational requirements rather than starting with a model and looking for a problem to solve.
+
+### 2. Deterministic tools
+
+Critical hospital operations are implemented using deterministic Python services rather than allowing the LLM to directly manipulate application state.
+
+### 3. Explicit routing
+
+Requests are classified before being executed.
+
+### 4. Validation
+
+Patient IDs, appointment IDs, specialties, and dates are validated before operations are performed.
+
+### 5. Stateful behavior
+
+Operations that change appointment state are persisted and can be verified through subsequent requests.
+
+### 6. Evaluation-driven development
+
+Features are accompanied by evaluation cases so that improvements can be measured objectively.
+
+### 7. Safety by design
+
+Medical diagnosis, medication recommendations, and treatment recommendations are explicitly outside the agent's operational scope.
+
+### 8. Small-model engineering
+
+The project demonstrates how careful architecture can compensate for a relatively small local model.
+
+---
+
+## FDE Perspective
+
+This project was built specifically to demonstrate **Forward Deployed Engineering skills**.
+
+An FDE working with an AI system needs more than model knowledge.
+
+They need to understand:
+
+* What the customer actually needs
+* Which workflows should be automated
+* Where deterministic systems are safer than LLMs
+* How to integrate AI with existing software
+* How to debug model/tool failures
+* How to evaluate reliability
+* How to handle edge cases
+* How to design safe failure behavior
+* How to translate vague customer requirements into engineering requirements
+* How to continuously improve the system using real evaluation results
+
+MEDCORE AI is therefore intentionally more than an LLM wrapper.
+
+It demonstrates the complete engineering loop:
 
 ```text
-PASSED: 45/45
-ACCURACY: 100.0%
-```
-
-### Running the API server
-
-```bash
-uvicorn app.api:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Running the terminal interface
-
-```bash
-python -m app.terminal
+Customer Requirement
+        ↓
+System Design
+        ↓
+AI + Tools
+        ↓
+Backend Integration
+        ↓
+Evaluation
+        ↓
+Failure Analysis
+        ↓
+Engineering Improvements
+        ↓
+Re-evaluation
 ```
 
 ---
 
-## API
-
-The project exposes a FastAPI interface.
-
-Health check:
-
-```text
-GET /health
-```
-
-Chat endpoint:
-
-```text
-POST /chat
-```
-
-Example request:
-
-```json
-{
-  "message": "Look up patient P1001."
-}
-```
-
-Example response:
-
-```json
-{
-  "success": true,
-  "tool": "get_patient",
-  "response": "Patient P1001: Arjun Mehta. Date of birth: 1985-04-12. Phone: 555-0101."
-}
-```
-
----
-
-## Design Principles
-
-### 1. LLMs interpret; tools execute
-
-The model should not directly manipulate critical application state.
-
-### 2. Fail safely
-
-Unknown patients, unavailable appointments, missing arguments, unsupported requests, and unsafe medical requests should produce controlled failures.
-
-### 3. Evaluate continuously
-
-Agent quality should be measured through repeatable test cases rather than subjective demos.
-
-### 4. Separate customer knowledge from model knowledge
-
-Hospital-specific information belongs in the application's knowledge layer.
-
-### 5. Build for real users
-
-Users will phrase requests differently, omit information, make mistakes, and ask unsupported questions.
-
-The system must handle those situations deliberately.
-
----
-
-## Status
+## Current Status
 
 **Core agent implementation: Complete**
 
-**Evaluation: 45/45 — 100%**
+**Evaluation suite: 45/45 — 100%**
 
-**Focus: AI Agent Engineering / FDE Engineering**
+The current repository represents a functional hospital-operations AI agent with patient operations, doctor discovery, appointment workflows, RAG, safety handling, persistence, API support, and evaluation infrastructure.
 
-This repository is intended as a portfolio and engineering demonstration of building, integrating, testing, and evaluating an AI agent around a real operational workflow.
+Future development can extend the system with additional integrations and production infrastructure without changing the core architecture.
+
+---
+
+## Disclaimer
+
+MEDCORE AI is an engineering project and demonstration system.
+
+It is **not a medical diagnostic system** and should not be used to diagnose conditions, prescribe medication, or recommend medical treatment.
